@@ -1,0 +1,288 @@
+{
+	"info": {
+		"_postman_id": "8ec2aebd-afe8-4fcc-bfb1-84bc13b2c478",
+		"name": "Resource Move Validation APIs",
+		"description": "Designed by Anshul Srivastava. Compiled on 01/05/2021\r\n\r\n\r\nThese set of APIs help you to provide all the details in one go and perform the validation on resource groups without doing any sort of copy-paste. In our earlier approach, we had to fetch the list of resources from Powershell and then paste the well-structured resource list into Postman POST API to fetch the validation results. But in this case, all you need to do is fill in the environmental variables and that's it. For every other resource group, you just need to replace the RG name in the variables. The order in which these APIs need to be run is - \r\n\r\n1. Get Azure AD token\r\n2. Fetch Resources in Resource group\r\n3. Resources to Validate\r\n4. Get Validation Results",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get Azure AD Token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"bodyData = JSON.parse(responseBody)\r",
+							"value = bodyData.access_token\r",
+							"\r",
+							"\r",
+							"pm.environment.set(\"Auth_Token\",value);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "grant_type",
+						"value": "client_credentials",
+						"type": "text",
+						"disabled": true
+					},
+					{
+						"key": "ContentType",
+						"value": "application/x-www-form-urlencoded",
+						"type": "text"
+					},
+					{
+						"key": "client_id",
+						"value": "{client_id}",
+						"type": "text",
+						"disabled": true
+					},
+					{
+						"key": "client_secret",
+						"value": "{client_secret}",
+						"type": "text",
+						"disabled": true
+					},
+					{
+						"key": "resource",
+						"value": "https://management.core.windows.net/",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "grant_type",
+							"value": "client_credentials",
+							"type": "text"
+						},
+						{
+							"key": "ContentType",
+							"value": "application/x-www-form-urlencoded",
+							"type": "text",
+							"disabled": true
+						},
+						{
+							"key": "client_id",
+							"value": "{{client_id}}",
+							"type": "text"
+						},
+						{
+							"key": "client_secret",
+							"value": "{{client_secret}}",
+							"type": "text"
+						},
+						{
+							"key": "resource",
+							"value": "https://management.core.windows.net/",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://login.microsoftonline.com/{{TenantId}}/oauth2/token",
+					"protocol": "https",
+					"host": [
+						"login",
+						"microsoftonline",
+						"com"
+					],
+					"path": [
+						"{{TenantId}}",
+						"oauth2",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Resources to Validate",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"\r",
+							"value1 = responseHeaders.Location\r",
+							"\r",
+							"pm.environment.set(\"ValidationURL\", value1);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{Auth_Token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer ",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n \"resources\": {{ResourceList}},\r\n    \"targetResourceGroup\":  \"/subscriptions/{{TargetSubscription}}/resourceGroups/{{TargetResourceGroup}}\"\r\n}"
+				},
+				"url": {
+					"raw": "https://management.azure.com/subscriptions/{{SubscriptionId}}/resourceGroups/{{SourceResourceGroup}}/validateMoveResources?api-version=2019-08-01",
+					"protocol": "https",
+					"host": [
+						"management",
+						"azure",
+						"com"
+					],
+					"path": [
+						"subscriptions",
+						"{{SubscriptionId}}",
+						"resourceGroups",
+						"{{SourceResourceGroup}}",
+						"validateMoveResources"
+					],
+					"query": [
+						{
+							"key": "api-version",
+							"value": "2019-08-01"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Validation Results",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{Auth_Token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{ValidationURL}}",
+					"host": [
+						"{{ValidationURL}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Fetch Resources In Resource Group",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"returnedData = JSON.parse(responseBody)\r",
+							"value2 = returnedData.value\r",
+							"value3 = value2.length\r",
+							"index = 0\r",
+							"var resourceList = []\r",
+							"while (index < value3) { \r",
+							"     if((value2[index].name).indexOf(\"/\") === -1){\r",
+							"       console.log(value2[index].name);\r",
+							"       resourceList.push(value2[index].id);\r",
+							"     }\r",
+							"       index++;    \r",
+							"}\r",
+							"\r",
+							"pm.environment.set(\"ResourceList\", JSON.stringify(resourceList));"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{Auth_Token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://management.azure.com/subscriptions/{{SubscriptionId}}/resourceGroups/{{SourceResourceGroup}}/resources?api-version=2020-06-01",
+					"protocol": "https",
+					"host": [
+						"management",
+						"azure",
+						"com"
+					],
+					"path": [
+						"subscriptions",
+						"{{SubscriptionId}}",
+						"resourceGroups",
+						"{{SourceResourceGroup}}",
+						"resources"
+					],
+					"query": [
+						{
+							"key": "api-version",
+							"value": "2020-06-01"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
